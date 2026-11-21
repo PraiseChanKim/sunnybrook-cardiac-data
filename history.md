@@ -4,6 +4,18 @@
 
 ## 2026-11-21
 
+**2026-11-21 | 팀원 yechan**
+
+**의료영상 기능 개발**
+
+- src/imaging/dicom_loader.py 구현
+- pydicom을 활용한 심장 MRI 영상 로딩 기능 개발
+- DICOM 픽셀 데이터 정규화 및 메타데이터 추출
+- personal/yechan/에 Streamlit 테스트 뷰어 구현
+- Sunnybrook 심장 MRI 영상 출력 테스트 성공
+- MRI 케이스 선택 및 영상 번호 슬라이더 기능 구현
+- 관련 PR: 8cec8ba647a650a5ece99047f50fd58014818c12
+
 ### 프로젝트 환경 설정
 - 팀원별 개인 작업 폴더(`personal/`) 구성
 - GitHub 협업 환경 정리
