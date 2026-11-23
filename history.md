@@ -21,18 +21,17 @@
 - GitHub 협업 환경 정리
 - 개발 이력 관리용 `history.md` 파일 생성
 
-<<<<<<< Updated upstream
-=======
+
 ## 2026-11-23
 
 **2026-11-23 | 팀원 yusin**
 
 **검토(review) 기능 개발**
 
-- personal/yu/review_status.py 구현
-- 검토 상태 전이 규칙(접수 → 배정 → 검토 중 → 완료, 보완 요청, 재검토) 및 역할별 권한 검사
-- 업무 목록 분리(처리할 업무/완료 업무), 메모 작성 가능 여부 함수 추가
-- personal/yu/test_review_status.py 테스트 15개 작성, 전체 통과
+- `personal/yu/review_status.py` 구현
+- 검토 상태 전이 규칙 및 역할별 권한 검사
+- 업무 목록 분리 및 메모 작성 가능 여부 함수 추가
+- `personal/yu/test_review_status.py` 테스트 15개 작성, 전체 통과
 - 관련 PR: #3
 
 **2026-11-23 | 팀원 yechan**
@@ -40,15 +39,14 @@
 **CLAHE 영상처리 알고리즘 구현**
 
 - OpenCV를 활용한 CLAHE 명암 대비 개선 알고리즘 구현
-- src/imaging/image_processing.py에 apply_clahe() 함수 추가
+- `src/imaging/image_processing.py`에 `apply_clahe()` 함수 추가
 - Clip Limit 및 Tile Grid Size 파라미터 조절 기능 구현
 - Streamlit에서 원본 심장 MRI와 CLAHE 처리 결과 비교 기능 추가
 - Clip Limit 2.0 → 10.0, Tile Grid Size 8 → 16 변경 테스트 완료
-- 파라미터 변경에 따른 명암 대비 개선 결과 확인
-- requirements.txt에 opencv-python-headless 의존성 추가
+- 파라미터 변경에 따른 명암 대비 변화 확인
+- `requirements.txt`에 `opencv-python-headless` 의존성 추가
 - 관련 PR: 0aa19b6c571c56bec9c3bc283cca6ff84e07196e
 
->>>>>>> Stashed changes
 ---
 
 ## 작성 규칙

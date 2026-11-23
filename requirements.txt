@@ -1,0 +1,4 @@
+numpy
+pydicom
+streamlit
+opecv-python-headless
