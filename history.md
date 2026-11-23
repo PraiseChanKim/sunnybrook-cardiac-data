@@ -47,6 +47,17 @@
 - `requirements.txt`에 `opencv-python-headless` 의존성 추가
 - 관련 PR: 0aa19b6c571c56bec9c3bc283cca6ff84e07196e
 
+**Gaussian Blur 영상처리 알고리즘 구현**
+
+- OpenCV를 활용한 Gaussian Blur 영상 평활화 알고리즘 구현
+- src/imaging/image_processing.py에 apply_gaussian_blur() 함수 추가
+- Kernel Size 및 Sigma 파라미터 조절 기능 구현
+- Streamlit에서 원본 MRI, CLAHE, Gaussian Blur 결과 비교 기능 추가
+- Kernel Size 15, Sigma 4.5 설정에서 영상 평활화 결과 확인
+- 기존 CLAHE 알고리즘과 독립적으로 동작하도록 구현
+- 새로운 라이브러리 추가 없음 (기존 OpenCV 사용)
+- 관련 PR: 45debf6bf16669fe61e6f4264d2783609cfa7ab6
+
 ---
 
 ## 작성 규칙
