@@ -19,6 +19,13 @@ venv/
 !.env.example
 .streamlit/secrets.toml
 
+# Firebase / cloud credentials (never commit keys)
+*firebase-adminsdk*.json
+serviceAccount*.json
+*service-account*.json
+google-services.json
+*.pem
+
 # Medical data (large files / redistribution restrictions)
 **/data/
 *.dcm
