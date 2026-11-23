@@ -55,3 +55,45 @@ def apply_gaussian_blur(image, kernel_size=5, sigma=1.0):
     )
 
     return result
+
+
+# ==========================================
+# 3. Canny Edge Detection
+# ==========================================
+
+def apply_canny(image, low_threshold=50, high_threshold=150):
+    """
+    Canny 경계선 검출
+
+    image: 2차원 uint8 흑백 영상
+    low_threshold: 하한 임계값
+    high_threshold: 상한 임계값
+    """
+
+    if image.ndim != 2:
+        raise ValueError("2차원 흑백 영상만 지원합니다.")
+
+    if image.dtype != np.uint8:
+        raise ValueError("uint8 영상만 지원합니다.")
+
+    if not (0 <= low_threshold < high_threshold):
+        raise ValueError(
+            "High Threshold는 Low Threshold보다 커야 합니다."
+        )
+
+    # 1. Gaussian Blur로 잡음 완화
+    blurred = cv2.GaussianBlur(
+        image,
+        (5, 5),
+        sigmaX=0
+    )
+
+    # 2. Canny 경계선 검출
+    edges = cv2.Canny(
+        blurred,
+        threshold1=int(low_threshold),
+        threshold2=int(high_threshold)
+    )
+
+    return edges
+
