@@ -4,31 +4,28 @@ from pathlib import Path
 
 import streamlit as st
 
-# =====================================
-# 1. 프로젝트 최상위 경로
-# =====================================
-
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from src.imaging.dicom_loader import load_dicom
+from src.imaging.image_processing import apply_clahe
 
 
 # =====================================
-# 2. Streamlit 설정
+# 1. Streamlit 기본 설정
 # =====================================
 
 st.set_page_config(
-    page_title="Sunnybrook MRI Viewer",
+    page_title="Sunnybrook Cardiac MRI Viewer",
     layout="wide"
 )
 
 st.title("Sunnybrook Cardiac MRI Viewer")
-st.info("교육용 MRI 영상 뷰어입니다. 실제 의료 진단용이 아닙니다.")
+st.info("교육용 의료영상 처리 프로그램입니다. 실제 진단용이 아닙니다.")
 
 
 # =====================================
-# 3. 데이터셋 경로
+# 2. 데이터셋 경로
 # =====================================
 
 TRAIN_DIR = (
@@ -45,7 +42,7 @@ if not TRAIN_DIR.exists():
 
 
 # =====================================
-# 4. MRI 케이스 검색
+# 3. MRI 케이스 선택
 # =====================================
 
 cases = sorted(
@@ -58,34 +55,19 @@ if not cases:
     st.error("MRI 케이스를 찾을 수 없습니다.")
     st.stop()
 
-
-# =====================================
-# 5. 케이스 선택
-# =====================================
-
 selected_case = st.selectbox(
     "MRI 케이스 선택",
     cases,
     format_func=lambda path: path.name
 )
 
-
-# =====================================
-# 6. DICOM 파일 목록
-# =====================================
-
 dicom_files = sorted(
     (selected_case / "DICOM").glob("*.dcm")
 )
 
 if not dicom_files:
-    st.error("DICOM 파일을 찾을 수 없습니다.")
+    st.warning("DICOM 파일이 없습니다.")
     st.stop()
-
-
-# =====================================
-# 7. 영상 번호 선택
-# =====================================
 
 image_number = st.slider(
     "MRI 영상 번호",
@@ -98,33 +80,84 @@ selected_file = dicom_files[image_number - 1]
 
 
 # =====================================
-# 8. 영상 읽기 및 출력
+# 4. CLAHE 파라미터 설정
+# =====================================
+
+st.subheader("CLAHE 설정")
+
+clip_limit = st.slider(
+    "Clip Limit",
+    min_value=1.0,
+    max_value=10.0,
+    value=2.0,
+    step=0.5
+)
+
+tile_size = st.slider(
+    "Tile Grid Size",
+    min_value=2,
+    max_value=16,
+    value=8,
+    step=1
+)
+
+
+# =====================================
+# 5. DICOM 로딩 및 영상처리
 # =====================================
 
 try:
-    image, metadata = load_dicom(selected_file)
+    original, metadata = load_dicom(selected_file)
 
-    st.success("DICOM 영상 로딩 성공!")
-
-    st.subheader("Original Cardiac MRI")
-
-    st.image(
-        image,
-        caption=selected_file.name,
-        width=512
+    processed = apply_clahe(
+        original,
+        clip_limit=clip_limit,
+        tile_size=tile_size
     )
+
+    st.success("DICOM 로딩 및 CLAHE 처리 성공!")
+
+    # =================================
+    # 6. 원본과 결과 비교
+    # =================================
+
+    st.subheader("MRI 영상 비교")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.write("Original MRI")
+        st.image(
+            original,
+            caption="Original",
+            use_container_width=True,
+            clamp=True
+        )
+
+    with col2:
+        st.write("CLAHE MRI")
+        st.image(
+            processed,
+            caption="CLAHE Applied",
+            use_container_width=True,
+            clamp=True
+        )
+
+    # =================================
+    # 7. 영상 정보
+    # =================================
 
     st.subheader("영상 정보")
 
-    col1, col2, col3 = st.columns(3)
+    c1, c2, c3 = st.columns(3)
 
-    col1.metric("가로", metadata["columns"])
-    col2.metric("세로", metadata["rows"])
-    col3.metric("Modality", metadata["modality"])
+    c1.metric("가로", metadata["columns"])
+    c2.metric("세로", metadata["rows"])
+    c3.metric("Modality", metadata["modality"])
 
     st.write("케이스:", selected_case.name)
     st.write("파일 이름:", selected_file.name)
     st.write("Instance Number:", metadata["instance_number"])
 
 except Exception as error:
-    st.error(f"DICOM 처리 오류: {error}")
+    st.error(f"영상 처리 오류: {error}")
