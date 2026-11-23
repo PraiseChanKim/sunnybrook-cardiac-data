@@ -10,7 +10,8 @@ sys.path.insert(0, str(ROOT))
 from src.imaging.dicom_loader import load_dicom
 from src.imaging.image_processing import (
     apply_clahe,
-    apply_gaussian_blur
+    apply_gaussian_blur,
+    apply_canny
 )
 
 
@@ -24,7 +25,7 @@ st.set_page_config(
 )
 
 st.title("Sunnybrook Cardiac MRI Viewer")
-st.info("교육용 의료영상 처리 프로그램입니다. 실제 진단용이 아닙니다.")
+st.info("교육용 영상처리 프로그램입니다. 실제 진단용이 아닙니다.")
 
 
 # =====================================
@@ -69,7 +70,7 @@ dicom_files = sorted(
 )
 
 if not dicom_files:
-    st.warning("DICOM 파일이 없습니다.")
+    st.error("DICOM 파일이 없습니다.")
     st.stop()
 
 image_number = st.slider(
@@ -90,17 +91,12 @@ st.subheader("CLAHE 설정")
 
 clip_limit = st.slider(
     "Clip Limit",
-    min_value=1.0,
-    max_value=10.0,
-    value=2.0,
-    step=0.5
+    1.0, 10.0, 2.0, 0.5
 )
 
 tile_size = st.slider(
     "Tile Grid Size",
-    min_value=2,
-    max_value=16,
-    value=8
+    2, 16, 8
 )
 
 
@@ -128,35 +124,66 @@ sigma = st.slider(
 
 
 # =====================================
-# 6. DICOM 영상 읽기
+# 6. Canny 설정
+# =====================================
+
+st.subheader("Canny Edge Detection 설정")
+
+low_threshold = st.slider(
+    "Low Threshold",
+    min_value=0,
+    max_value=250,
+    value=50
+)
+
+high_threshold = st.slider(
+    "High Threshold",
+    min_value=1,
+    max_value=300,
+    value=150
+)
+
+if low_threshold >= high_threshold:
+    st.warning(
+        "High Threshold는 Low Threshold보다 커야 합니다."
+    )
+    st.stop()
+
+
+# =====================================
+# 7. DICOM 로딩 및 영상처리
 # =====================================
 
 try:
     original, metadata = load_dicom(selected_file)
 
-    # CLAHE 적용
     clahe_result = apply_clahe(
         original,
         clip_limit=clip_limit,
         tile_size=tile_size
     )
 
-    # Gaussian Blur 적용
     gaussian_result = apply_gaussian_blur(
         original,
         kernel_size=kernel_size,
         sigma=sigma
     )
 
-    st.success("DICOM 영상 및 영상처리 성공!")
+    canny_result = apply_canny(
+        original,
+        low_threshold=low_threshold,
+        high_threshold=high_threshold
+    )
+
+    st.success("DICOM 영상 및 3종 영상처리 성공!")
 
     # =================================
-    # 7. 영상 비교
+    # 8. 영상 비교
     # =================================
 
     st.subheader("MRI 영상 비교")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.write("Original MRI")
@@ -185,8 +212,17 @@ try:
             clamp=True
         )
 
+    with col4:
+        st.write("Canny Edge MRI")
+        st.image(
+            canny_result,
+            caption="Canny Edge",
+            use_container_width=True,
+            clamp=True
+        )
+
     # =================================
-    # 8. 영상 정보
+    # 9. 영상 정보
     # =================================
 
     st.subheader("영상 정보")
@@ -199,7 +235,10 @@ try:
 
     st.write("케이스:", selected_case.name)
     st.write("파일 이름:", selected_file.name)
-    st.write("Instance Number:", metadata["instance_number"])
+    st.write(
+        "Instance Number:",
+        metadata["instance_number"]
+    )
 
 except Exception as error:
     st.error(f"영상 처리 오류: {error}")
