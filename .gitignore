@@ -1,7 +1,33 @@
-data/
-.venv/
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Python
 __pycache__/
-*.dcm
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets
 .env
-.DS_Store
-.DS_Store
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Medical data (large files / redistribution restrictions)
+**/data/
+*.dcm
+*.nii
+*.nii.gz
+*.npy
+*.npz
+*.h5
+
+# Jupyter / logs
+.ipynb_checkpoints/
+*.log
