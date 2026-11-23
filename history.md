@@ -58,6 +58,19 @@
 - 새로운 라이브러리 추가 없음 (기존 OpenCV 사용)
 - 관련 PR: 45debf6bf16669fe61e6f4264d2783609cfa7ab6
 
+**Canny Edge Detection 알고리즘 구현**
+
+**2026-11-23 | 팀원 yechan**
+
+- OpenCV를 활용한 Canny 경계선 검출 알고리즘 구현
+- `src/imaging/image_processing.py`에 `apply_canny()` 함수 추가
+- Low Threshold 및 High Threshold 조절 기능 구현
+- Canny 적용 전 Gaussian Blur 전처리 추가
+- Streamlit에서 원본, CLAHE, Gaussian Blur, Canny 영상 4종 비교 기능 구현
+- 임계값 변화에 따른 경계선 검출 결과 테스트 완료
+- 영상처리 알고리즘 3종 구현 및 기본 동작 검증 완료
+- 관련 PR: 6b79c2a033c892305b1d079e75c866ef07d91d57
+
 ---
 
 ## 작성 규칙
