@@ -104,6 +104,43 @@
 
 - 관련 PR: ce47f79bcf449fe6bd647a086d78cf92f98d13a2
 
+**2026-11-24 | 팀원 yechan**
+
+**Sunnybrook 좌심실 윤곽선 분석 기능 구현**
+
+**작업 내용**
+
+- Sunnybrook Cardiac MR Database의 ContoursPart3 데이터셋 활용
+- 전문가 수동 윤곽선 좌표 파일(icontour, ocontour) 로딩 기능 구현
+- 케이스 ID와 DICOM 파일명을 기준으로 MRI 영상 및 윤곽선 데이터 매칭
+- 좌심실 내벽(Endocardium)과 외벽(Epicardium) 윤곽선 시각화
+- OpenCV 기반 좌심실 내벽·외벽의 픽셀 면적 계산
+- 외벽과 내벽의 면적 차이를 이용한 심근(Myocardium) 영역 면적 계산
+- PACS Analysis Tools에 좌심실 윤곽선 표시 ON/OFF 기능 추가
+- Case Browser에 '윤곽선 있는 영상만 보기' 필터 구현
+- 기존 CLAHE, Gaussian Blur, Canny Edge 및 ROI 분석 기능과 연동
+
+**담당 및 수정 파일**
+
+- src/imaging/contour.py: 윤곽선 좌표 로딩, 시각화 및 면적 계산
+- app.py: 좌심실 윤곽선 표시 및 영상 필터 기능 통합
+- 테스트 및 검증
+- SC-HF-I-01 / IM-0001-0059.dcm의 내벽 및 외벽 윤곽선 파일 로딩 확인
+- 내벽 좌표 210개, 외벽 좌표 269개 확인
+- 내벽 면적 1,097 px², 외벽 면적 1,782 px², 심근 면적 685 px² 계산 확인
+- MRI 원본 및 CLAHE 처리 영상에 윤곽선이 표시되는 것 확인
+- 윤곽선이 존재하는 MRI만 선택하는 필터 정상 작동 확인
+- 윤곽선 데이터가 없는 영상에서도 기존 MRI 조회 기능 유지
+
+**향후 개선 사항**
+
+- DICOM PixelSpacing을 활용한 실제 면적(mm²) 계산
+- 원본 및 처리 영상의 동일 ROI 통계 비교
+- 특화 기능에 대한 정량적 검증 및 보고서 작성
+- Firebase 및 케이스 검토 시스템과 연동
+
+- 관련 PR: 7670ebc3b2293a5cf539b2c951c151a0cca834f3
+
 ---
 
 ## 작성 규칙
