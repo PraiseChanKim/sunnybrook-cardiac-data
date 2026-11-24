@@ -1,4 +1,9 @@
-
+from src.imaging.contour import (
+    load_contours,
+    calculate_contour_areas,
+    draw_contours,
+)
+import numpy as np
 import plotly.graph_objects as go
 from PIL import Image
 from streamlit_cropper import st_cropper
@@ -111,11 +116,20 @@ TRAIN_DIR = (
     / "TrainingDataDICOM"
 )
 
+CONTOUR_DIR = (
+    ROOT
+    / "data"
+    / "Sunnybrook Cardiac MR Database ContoursPart3"
+    / "Sunnybrook Cardiac MR Database ContoursPart3"
+    / "TrainingDataContours"
+)
+
 # ==========================================
 # MRI 확대 / 축소 / 이동 뷰어
 # ==========================================
 
-def render_zoomable_image(image, key):
+
+def render_zoomable_image(image, key, contours=None):
     height, width = image.shape
 
     fig = go.Figure(
@@ -133,6 +147,42 @@ def render_zoomable_image(image, key):
         )
     )
 
+    # ======================================
+    # 좌심실 윤곽선 표시
+    # ======================================
+
+    if contours:
+        colors = {
+            "inner": "#00FF00",
+            "outer": "#FFA500",
+        }
+
+        for name, points in contours.items():
+
+            # 마지막 점과 첫 점을 연결
+            closed_points = np.vstack(
+                [points, points[0]]
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=closed_points[:, 0],
+                    y=closed_points[:, 1],
+                    mode="lines",
+                    line=dict(
+                        color=colors[name],
+                        width=2,
+                    ),
+                    name=name,
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+
+    # ======================================
+    # 기존 확대 / 이동 기능
+    # ======================================
+
     fig.update_layout(
         height=460,
         dragmode="pan",
@@ -142,7 +192,6 @@ def render_zoomable_image(image, key):
         uirevision=key,
     )
 
-    # X축: 왼쪽에서 오른쪽
     fig.update_xaxes(
         range=[-0.5, width - 0.5],
         visible=False,
@@ -150,7 +199,6 @@ def render_zoomable_image(image, key):
         zeroline=False,
     )
 
-    # Y축: MRI 영상처럼 위에서 아래 방향
     fig.update_yaxes(
         range=[height - 0.5, -0.5],
         visible=False,
@@ -171,6 +219,7 @@ def render_zoomable_image(image, key):
             "displaylogo": False,
         },
     )
+
 
 # ------------------------------------------
 # Sidebar
@@ -279,6 +328,11 @@ elif page == "MRI 뷰어":
             format_func=lambda path: path.name,
         )
 
+        
+        # ======================================
+        # DICOM 영상 목록
+        # ======================================
+
         dicom_files = sorted(
             (selected_case / "DICOM").glob("*.dcm")
         )
@@ -287,17 +341,77 @@ elif page == "MRI 뷰어":
             st.warning("이 케이스에 DICOM 파일이 없습니다.")
             st.stop()
 
-        image_number = st.slider(
-            "영상 번호",
-            min_value=1,
-            max_value=len(dicom_files),
-            value=1,
+        total_images = len(dicom_files)
+
+        # ======================================
+        # 윤곽선 있는 영상 필터
+        # ======================================
+
+        only_contours = st.checkbox(
+            "윤곽선 있는 영상만 보기",
+            value=False,
         )
 
-        selected_file = dicom_files[image_number - 1]
+        if only_contours:
 
-        st.caption(f"총 {len(dicom_files)}개 영상")
+            contour_folder = (
+                CONTOUR_DIR
+                / selected_case.name
+                / "contours-manual"
+                / "IRCCI-expert"
+            )
+
+            annotated_files = []
+
+            for dicom_file in dicom_files:
+
+                inner_path = contour_folder / (
+                    f"{dicom_file.stem}-icontour-manual.txt"
+                )
+
+                outer_path = contour_folder / (
+                    f"{dicom_file.stem}-ocontour-manual.txt"
+                )
+
+                # 내벽 또는 외벽이 하나라도 있으면 포함
+                if inner_path.is_file() or outer_path.is_file():
+                    annotated_files.append(dicom_file)
+
+            if not annotated_files:
+                st.warning(
+                    "현재 케이스에 윤곽선 데이터가 있는 "
+                    "MRI 영상이 없습니다."
+                )
+                st.stop()
+
+            # 윤곽선 영상만 드롭다운으로 선택
+            selected_file = st.selectbox(
+                "윤곽선 영상 선택",
+                annotated_files,
+                format_func=lambda path: path.name,
+            )
+
+            st.success(
+                f"윤곽선 영상 {len(annotated_files)}개 "
+                f"/ 전체 {total_images}개"
+            )
+
+        else:
+
+            # 기존 전체 영상 슬라이더
+            image_number = st.slider(
+                "영상 번호",
+                min_value=1,
+                max_value=total_images,
+                value=1,
+            )
+
+            selected_file = dicom_files[image_number - 1]
+
+            st.caption(f"총 {total_images}개 영상")
+
         st.caption(f"파일: {selected_file.name}")
+
 
     # Analysis Tools
     with tool_col:
@@ -348,16 +462,28 @@ elif page == "MRI 뷰어":
             "ROI 분석 모드",
         value=False,
         )
+        
+        show_contours = st.checkbox(
+            "좌심실 윤곽선 표시",
+        value=False,
+        )
 
         st.divider()
-        st.caption("추가 예정: ROI 분석")
-        st.caption("추가 예정: 확대 / 이동 / 초기화")
-        st.caption("추가 예정: 좌심실 윤곽선")
 
     # Load and process the selected MRI
     try:
         original, metadata = load_dicom(selected_file)
 
+          # 현재 케이스 및 DICOM 파일과 일치하는 윤곽선
+        contours = {}
+
+        if show_contours:
+            contours = load_contours(
+            CONTOUR_DIR,
+            selected_case.name,
+            selected_file.stem,
+        )
+            
         if algorithm == "CLAHE":
             processed = apply_clahe(
                 original,
@@ -421,8 +547,15 @@ elif page == "MRI 뷰어":
                         img_height * display_width / img_width
                     )
 
+                    # 원본 MRI 위에 좌심실 윤곽선 추가
+                    roi_display_source = (
+                        draw_contours(original, contours)
+                        if contours
+                        else original
+                    )
+
                     display_image = Image.fromarray(
-                        original
+                        roi_display_source
                     ).resize(
                         (display_width, display_height),
                         resample=Image.Resampling.NEAREST,
@@ -485,6 +618,7 @@ elif page == "MRI 뷰어":
                                 f"roi_processed_{selected_case.name}_"
                                 f"{selected_file.stem}_{algorithm}"
                             ),
+                            contours=contours,
                         )
 
                     else:
@@ -604,6 +738,7 @@ elif page == "MRI 뷰어":
                                 f"original_{selected_case.name}_"
                                 f"{selected_file.stem}"
                             ),
+                            contours=contours,
                         )
 
                     with right:
@@ -615,6 +750,7 @@ elif page == "MRI 뷰어":
                                 f"processed_{selected_case.name}_"
                                 f"{selected_file.stem}_{algorithm}"
                             ),
+                            contours=contours,
                         )
 
                 else:
@@ -627,8 +763,56 @@ elif page == "MRI 뷰어":
                             f"viewer_{selected_case.name}_"
                             f"{selected_file.stem}_{algorithm}"
                         ),
+                        contours=contours,
                     )
 
+
+            # ==================================
+            # 좌심실 윤곽선 면적 분석
+            # ==================================
+
+            if show_contours:
+
+                st.divider()
+                st.subheader("LV Contour Analysis")
+
+                if contours:
+
+                    areas = calculate_contour_areas(
+                        original.shape,
+                        contours,
+                    )
+
+                    col1, col2, col3 = st.columns(3)
+
+                    col1.metric(
+                        "Endocardium",
+                        f"{areas['inner']:,} px²"
+                        if "inner" in areas else "없음",
+                    )
+
+                    col2.metric(
+                        "Epicardium",
+                        f"{areas['outer']:,} px²"
+                        if "outer" in areas else "없음",
+                    )
+
+                    col3.metric(
+                        "Myocardium",
+                        f"{areas['myocardium']:,} px²"
+                        if "myocardium" in areas else "계산 불가",
+                    )
+
+                    st.caption(
+                        "초록색: 좌심실 내벽 | "
+                        "주황색: 좌심실 외벽"
+                    )
+
+                else:
+
+                    st.info(
+                        "현재 MRI 영상에는 윤곽선 데이터가 없습니다."
+                    )
 
             # ==================================
             # DICOM Metadata
