@@ -28,14 +28,9 @@ google-services.json
 
 # Medical data (large files / redistribution restrictions)
 
-# Ignore all dataset contents
+# Ignore all dataset contents (only data/.gitkeep is tracked, so data/ exists after clone)
 /data/**
-
-# Allow directory structure
-!/data/**/
-
-# Track placeholder files
-!/data/**/.gitkeep
+!/data/.gitkeep
 
 *.dcm
 *.nii

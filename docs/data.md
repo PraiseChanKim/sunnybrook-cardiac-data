@@ -13,7 +13,7 @@
 
 ## 준비 방법
 1. 원 배포 프로젝트에서 **DICOM part와 contour part를 함께** 받는다.
-2. 압축을 풀어 레포 루트의 `data/` 아래에 둔다. (`data/`가 없으면 직접 만든다.)
+2. 압축을 풀어 레포 루트의 `data/` 아래에 둔다. `data/` 안의 하위 폴더는 git이 추적하지 않으니 폴더째 넣어도 `git status`에 변경이 뜨지 않는다.
 3. 현재 코드(`personal/yechan/test_dicom.py`)가 기대하는 경로:
 
 ```
