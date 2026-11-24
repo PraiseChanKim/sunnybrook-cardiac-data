@@ -30,7 +30,7 @@ streamlit run personal/yechan/test_dicom.py
 | [docs/project-guide.md](docs/project-guide.md) | 과제 기준 (구현 요구사항, 제출 방법, 평가 관련) |
 | [docs/data.md](docs/data.md) | 데이터 다운로드와 폴더 구조 |
 | [docs/conventions.md](docs/conventions.md) | 브랜치, 커밋, PR 규칙 |
-| [history.md](history.md) | 팀원별 개발 이력 |
+| [docs/history/](docs/history/) | 팀원별 개발 이력 (`history-<이름>.md`, 본인 파일만 수정) |
 
 ## 폴더 구조
 - `src/`: 공통 모듈 (`imaging`, `backend`, `review`)
