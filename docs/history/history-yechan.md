@@ -48,9 +48,9 @@
 - 새로운 라이브러리 추가 없음 (기존 OpenCV 사용)
 - 관련 PR: 45debf6bf16669fe61e6f4264d2783609cfa7ab6
 
-**Canny Edge Detection 알고리즘 구현**
-
 **2026-11-23 | 팀원 yechan**
+
+**Canny Edge Detection 알고리즘 구현**
 
 - OpenCV를 활용한 Canny 경계선 검출 알고리즘 구현
 - `src/imaging/image_processing.py`에 `apply_canny()` 함수 추가
@@ -60,6 +60,49 @@
 - 임계값 변화에 따른 경계선 검출 결과 테스트 완료
 - 영상처리 알고리즘 3종 구현 및 기본 동작 검증 완료
 - 관련 PR: 6b79c2a033c892305b1d079e75c866ef07d91d57
+
+## 2026-11-24
+
+**2026-11-24 | 팀원 yechan**
+
+**Sunnybrook Cardiac PACS 웹사이트 및 MRI 분석 기능 구현**
+
+**작업 내용**
+
+- Streamlit을 활용한 Sunnybrook Cardiac PACS 웹사이트 기본 UI 개발
+- 대시보드, MRI 뷰어, 케이스 관리, 검토 관리, 사용자 관리 메뉴 구성
+- Case Browser를 통한 DICOM 케이스 검색 및 영상 선택 기능 구현
+- 기존 CLAHE, Gaussian Blur, Canny Edge 알고리즘을 PACS 웹사이트에 통합
+- 영상처리 파라미터 조절 및 원본·처리 결과 비교 기능 구현
+- streamlit-cropper를 이용한 마우스 기반 ROI 선택 기능 추가
+- ROI 평균, 표준편차, 최솟값, 최댓값, 픽셀 면적 및 히스토그램 계산 기능 구현
+- Plotly를 활용한 MRI 확대·축소·이동·초기화 기능 구현
+- PACS 사이드바, 메뉴 글씨 및 MRI 뷰어 크기 조정
+
+**담당 및 수정 파일**
+
+- app.py : PACS 웹사이트 UI 및 영상 분석 기능 통합
+- src/imaging/roi_analysis.py : ROI 통계 및 히스토그램 계산
+- .streamlit/config.toml : 웹사이트 다크 테마 설정
+- requirements.txt : 필요한 라이브러리 추가
+
+**테스트 및 검증**
+
+- Sunnybrook DICOM 영상 로딩 및 케이스 전환 확인
+- CLAHE, Gaussian Blur, Canny Edge 정상 동작 확인
+- ROI 사각형 크기와 위치에 따른 통계값 및 히스토그램 변화 확인
+- 일반 MRI 모드와 ROI 분석 모드 전환 확인
+- MRI 확대·축소, 드래그 이동 및 화면 초기화 확인
+- 원본 MRI와 처리 영상의 동시 비교 확인
+
+**향후 개선 사항**
+
+- 영상처리 파라미터 변경 시 확대 위치가 초기화되는 현상 개선
+- 원본과 처리 영상의 ROI 통계 비교 기능 추가
+- Sunnybrook 좌심실 윤곽선 분석 기능 구현
+- B·C 담당 기능과 PACS 웹사이트 연동
+
+- 관련 PR: ce47f79bcf449fe6bd647a086d78cf92f98d13a2
 
 ---
 
