@@ -8,6 +8,17 @@
 - GitHub 협업 환경 정리
 - 개발 이력 관리용 각자의 `history.md` 파일 생성 (완료)
 
+## 2026-11-23
+
+**2026-11-23 | 팀원 han**
+
+**프로젝트 문서와 협업 환경 정리**
+
+- 과제 기준 요약(`docs/project-guide.md`), 데이터 준비 안내(`docs/data.md`) 작성
+- 개발 규칙(`docs/conventions.md`), Issue·PR 템플릿 추가
+- `.gitignore`에 Firebase 서비스 계정 키, `.streamlit/secrets.toml` 제외 규칙 추가
+- `requirements.txt` 정리
+
 ## 2026-11-24
 
 **2026-11-24 | 팀원 han**
@@ -16,6 +27,21 @@
 
 - /history.md는 폐기하고, docs/history/에 각자 작업 기록을 추가하도록 하게 파일을 쪼갬
 - history-han.md, history-yechan.md, history-yusin.md로 각자 알맞게 수정해서 관리하면 됨
+- 관련 PR: #11
+
+**data/ 폴더 추적 정리**
+
+- 중첩된 `data/` 아래 `.gitkeep` 추적을 중단해 팀원 `git status`에 삭제 파일이 뜨는 문제 해결
+- 관련 PR: #16
+
+**Firebase 연결 (사용자 인증·DB 담당 시작)**
+
+- Firebase 프로젝트 생성, Authentication(이메일/비밀번호), Cloud Firestore 설정
+- `src/backend/firebase_client.py`: Admin SDK 초기화, Firestore 클라이언트, 웹 API 키 로딩
+- `.streamlit/secrets.toml.example` 추가 (설정 형식 공유, 실제 키는 커밋하지 않음)
+- `tests/test_firebase_client.py`: 설정 오류 2건, Firestore 쓰기·읽기·삭제 연결 테스트 1건 작성, 3개 통과
+- `requirements.txt`에 `firebase-admin`, `requests`, `pytest` 추가
+- 관련 PR: 추후 수정
 
 ## 작성 규칙
 
