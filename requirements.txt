@@ -4,3 +4,6 @@ streamlit
 opencv-python-headless
 streamlit-cropper==0.3.1
 plotly
+firebase-admin
+requests
+pytest
