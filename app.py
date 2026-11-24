@@ -2,6 +2,7 @@ from src.imaging.contour import (
     load_contours,
     calculate_contour_areas,
     draw_contours,
+    analyze_contour_roi,
 )
 import numpy as np
 import plotly.graph_objects as go
@@ -218,6 +219,96 @@ def render_zoomable_image(image, key, contours=None):
             "displayModeBar": True,
             "displaylogo": False,
         },
+    )
+
+
+# ==========================================
+# 원본 / 처리 결과 ROI 통계 비교 UI
+# ==========================================
+
+def show_roi_comparison(before, after, algorithm, title):
+
+    st.subheader(title)
+
+    st.caption(
+        "동일한 픽셀 영역에서 원본과 처리 결과를 "
+        "비교합니다. (0~255 밝기값 기준)"
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric(
+        "ROI Area",
+        f"{before['area']:,} px²"
+    )
+
+    col2.metric(
+        "Mean 변화",
+        f"{after['mean']:.2f}",
+        delta=f"{after['mean'] - before['mean']:+.2f}",
+        delta_color="off",
+        help=f"원본 Mean: {before['mean']:.2f}",
+    )
+
+    col3.metric(
+        "Std 변화",
+        f"{after['std']:.2f}",
+        delta=f"{after['std'] - before['std']:+.2f}",
+        delta_color="off",
+        help=f"원본 Std: {before['std']:.2f}",
+    )
+
+    st.caption(
+        f"원본 Mean / Std: "
+        f"{before['mean']:.2f} / {before['std']:.2f} | "
+        f"처리 후 Mean / Std: "
+        f"{after['mean']:.2f} / {after['std']:.2f}"
+    )
+
+    # Canny Edge에서는 에지 픽셀 밀도도 계산
+    if algorithm == "Canny Edge":
+
+        st.metric(
+            "Edge Density",
+            f"{after['edge_density']:.2f}%"
+        )
+
+    # 원본과 처리 결과 히스토그램 겹쳐 그리기
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=np.arange(256),
+            y=before["histogram"],
+            mode="lines",
+            name="Original",
+            line=dict(color="#94A3B8", width=2),
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=np.arange(256),
+            y=after["histogram"],
+            mode="lines",
+            name=algorithm,
+            line=dict(color="#60A5FA", width=2),
+        )
+    )
+
+    fig.update_layout(
+        title="ROI Intensity Distribution",
+        xaxis_title="Gray Level (0-255)",
+        yaxis_title="Pixel Count",
+        height=300,
+        margin=dict(l=20, r=20, t=45, b=20),
+        legend=dict(orientation="h"),
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key=f"hist_compare_{title}_{algorithm}",
     )
 
 
@@ -707,6 +798,37 @@ elif page == "MRI 뷰어":
                             y_label="Pixel Count",
                             height=260,
                         )
+                        
+                    # ==================================
+                    # 수동 ROI의 영상처리 전후 비교
+                    # ==================================
+
+                    if algorithm != "Original":
+
+                        processed_roi = analyze_roi(
+                            processed,
+                            x=roi_result["x"],
+                            y=roi_result["y"],
+                            width=roi_result["width"],
+                            height=roi_result["height"],
+                        )
+
+                        # Canny Edge Density 계산
+                        processed_roi["edge_density"] = (
+                            np.count_nonzero(
+                                processed_roi["roi_image"]
+                            )
+                            / processed_roi["area"]
+                            * 100
+                        )
+
+                        show_roi_comparison(
+                            roi_result,
+                            processed_roi,
+                            algorithm,
+                            "Manual ROI - Before / After",
+                        )
+                    
 
             # ==================================
             # 일반 MRI 뷰어 모드
@@ -813,6 +935,70 @@ elif page == "MRI 뷰어":
                     st.info(
                         "현재 MRI 영상에는 윤곽선 데이터가 없습니다."
                     )
+            
+            # ==================================
+            # 좌심실 윤곽선 기반 전후 ROI 비교
+            # ==================================
+
+            if show_contours and contours:
+
+                st.divider()
+                st.subheader("LV ROI Quantitative Comparison")
+
+                # 데이터가 있는 영역만 선택 가능
+                region_options = {}
+
+                if "inner" in contours and "outer" in contours:
+                    region_options["심근 (Myocardium)"] = "myocardium"
+
+                if "inner" in contours:
+                    region_options["좌심실 내강 (LV Cavity)"] = "inner"
+
+                if "outer" in contours:
+                    region_options["외벽 내부 (Epicardium)"] = "outer"
+
+                region_label = st.selectbox(
+                    "분석할 좌심실 영역",
+                    list(region_options.keys()),
+                )
+
+                region = region_options[region_label]
+
+                # 원본 윤곽선 ROI 분석
+                original_stats = analyze_contour_roi(
+                    original,
+                    contours,
+                    region,
+                )
+
+                if algorithm == "Original":
+
+                    st.metric(
+                        "선택 영역 면적",
+                        f"{original_stats['area']:,} px²"
+                    )
+
+                    st.info(
+                        "영상처리 알고리즘을 선택하면 "
+                        "처리 전후 ROI 비교 결과가 표시됩니다."
+                    )
+
+                else:
+
+                    # 동일한 영역에서 영상처리 후 분석
+                    processed_stats = analyze_contour_roi(
+                        processed,
+                        contours,
+                        region,
+                    )
+
+                    show_roi_comparison(
+                        original_stats,
+                        processed_stats,
+                        algorithm,
+                        f"{region_label} - Before / After",
+                    )
+        
 
             # ==================================
             # DICOM Metadata

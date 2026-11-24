@@ -153,3 +153,90 @@ def draw_contours(image, contours):
         )
 
     return result
+
+
+# ==========================================
+# 좌심실 윤곽선 기반 ROI 정량 분석
+# ==========================================
+
+def analyze_contour_roi(image, contours, region):
+    """
+    전문가 윤곽선 내부의 픽셀을 분석한다.
+
+    region:
+        inner      - 좌심실 내강
+        outer      - 외벽 내부 전체
+        myocardium - 외벽에서 내강을 제외한 심근 영역
+    """
+
+    if image.ndim != 2 or image.dtype != np.uint8:
+        raise ValueError("2D uint8 MRI 영상이 필요합니다.")
+
+    # 윤곽선 다각형을 마스크로 변환
+    def make_mask(name):
+
+        points = contours.get(name)
+
+        if points is None or len(points) < 3:
+            raise ValueError(
+                f"{name} 윤곽선 데이터가 없습니다."
+            )
+
+        mask = np.zeros(
+            image.shape,
+            dtype=np.uint8
+        )
+
+        polygon = np.rint(points).astype(np.int32)
+
+        cv2.fillPoly(
+            mask,
+            [polygon],
+            color=1
+        )
+
+        return mask.astype(bool)
+
+    # 분석할 영역 선택
+    if region == "inner":
+
+        mask = make_mask("inner")
+
+    elif region == "outer":
+
+        mask = make_mask("outer")
+
+    elif region == "myocardium":
+
+        outer_mask = make_mask("outer")
+        inner_mask = make_mask("inner")
+
+        # 외벽 내부에서 내벽 내부를 제외
+        mask = outer_mask & ~inner_mask
+
+    else:
+        raise ValueError("알 수 없는 ROI 영역입니다.")
+
+    # 마스크 안에 있는 픽셀만 추출
+    pixels = image[mask]
+
+    if pixels.size == 0:
+        raise ValueError("ROI에 분석 가능한 픽셀이 없습니다.")
+
+    histogram = np.bincount(
+        pixels,
+        minlength=256
+    )
+
+    return {
+        "area": int(pixels.size),
+        "mean": float(np.mean(pixels)),
+        "std": float(np.std(pixels)),
+        "min": int(np.min(pixels)),
+        "max": int(np.max(pixels)),
+        "histogram": histogram,
+        "edge_density": float(
+            np.count_nonzero(pixels) / pixels.size * 100
+        ),
+    }
+
