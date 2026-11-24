@@ -27,7 +27,16 @@ google-services.json
 *.pem
 
 # Medical data (large files / redistribution restrictions)
-**/data/
+
+# Ignore all dataset contents
+/data/**
+
+# Allow directory structure
+!/data/**/
+
+# Track placeholder files
+!/data/**/.gitkeep
+
 *.dcm
 *.nii
 *.nii.gz
