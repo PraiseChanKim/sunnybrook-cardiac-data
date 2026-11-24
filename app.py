@@ -1,4 +1,10 @@
-
+from src.imaging.contour import (
+    load_contours,
+    calculate_contour_areas,
+    draw_contours,
+    analyze_contour_roi,
+)
+import numpy as np
 import plotly.graph_objects as go
 from PIL import Image
 from streamlit_cropper import st_cropper
@@ -111,11 +117,20 @@ TRAIN_DIR = (
     / "TrainingDataDICOM"
 )
 
+CONTOUR_DIR = (
+    ROOT
+    / "data"
+    / "Sunnybrook Cardiac MR Database ContoursPart3"
+    / "Sunnybrook Cardiac MR Database ContoursPart3"
+    / "TrainingDataContours"
+)
+
 # ==========================================
 # MRI 확대 / 축소 / 이동 뷰어
 # ==========================================
 
-def render_zoomable_image(image, key):
+
+def render_zoomable_image(image, key, contours=None):
     height, width = image.shape
 
     fig = go.Figure(
@@ -133,6 +148,42 @@ def render_zoomable_image(image, key):
         )
     )
 
+    # ======================================
+    # 좌심실 윤곽선 표시
+    # ======================================
+
+    if contours:
+        colors = {
+            "inner": "#00FF00",
+            "outer": "#FFA500",
+        }
+
+        for name, points in contours.items():
+
+            # 마지막 점과 첫 점을 연결
+            closed_points = np.vstack(
+                [points, points[0]]
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=closed_points[:, 0],
+                    y=closed_points[:, 1],
+                    mode="lines",
+                    line=dict(
+                        color=colors[name],
+                        width=2,
+                    ),
+                    name=name,
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+
+    # ======================================
+    # 기존 확대 / 이동 기능
+    # ======================================
+
     fig.update_layout(
         height=460,
         dragmode="pan",
@@ -142,7 +193,6 @@ def render_zoomable_image(image, key):
         uirevision=key,
     )
 
-    # X축: 왼쪽에서 오른쪽
     fig.update_xaxes(
         range=[-0.5, width - 0.5],
         visible=False,
@@ -150,7 +200,6 @@ def render_zoomable_image(image, key):
         zeroline=False,
     )
 
-    # Y축: MRI 영상처럼 위에서 아래 방향
     fig.update_yaxes(
         range=[height - 0.5, -0.5],
         visible=False,
@@ -171,6 +220,97 @@ def render_zoomable_image(image, key):
             "displaylogo": False,
         },
     )
+
+
+# ==========================================
+# 원본 / 처리 결과 ROI 통계 비교 UI
+# ==========================================
+
+def show_roi_comparison(before, after, algorithm, title):
+
+    st.subheader(title)
+
+    st.caption(
+        "동일한 픽셀 영역에서 원본과 처리 결과를 "
+        "비교합니다. (0~255 밝기값 기준)"
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric(
+        "ROI Area",
+        f"{before['area']:,} px²"
+    )
+
+    col2.metric(
+        "Mean 변화",
+        f"{after['mean']:.2f}",
+        delta=f"{after['mean'] - before['mean']:+.2f}",
+        delta_color="off",
+        help=f"원본 Mean: {before['mean']:.2f}",
+    )
+
+    col3.metric(
+        "Std 변화",
+        f"{after['std']:.2f}",
+        delta=f"{after['std'] - before['std']:+.2f}",
+        delta_color="off",
+        help=f"원본 Std: {before['std']:.2f}",
+    )
+
+    st.caption(
+        f"원본 Mean / Std: "
+        f"{before['mean']:.2f} / {before['std']:.2f} | "
+        f"처리 후 Mean / Std: "
+        f"{after['mean']:.2f} / {after['std']:.2f}"
+    )
+
+    # Canny Edge에서는 에지 픽셀 밀도도 계산
+    if algorithm == "Canny Edge":
+
+        st.metric(
+            "Edge Density",
+            f"{after['edge_density']:.2f}%"
+        )
+
+    # 원본과 처리 결과 히스토그램 겹쳐 그리기
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=np.arange(256),
+            y=before["histogram"],
+            mode="lines",
+            name="Original",
+            line=dict(color="#94A3B8", width=2),
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=np.arange(256),
+            y=after["histogram"],
+            mode="lines",
+            name=algorithm,
+            line=dict(color="#60A5FA", width=2),
+        )
+    )
+
+    fig.update_layout(
+        title="ROI Intensity Distribution",
+        xaxis_title="Gray Level (0-255)",
+        yaxis_title="Pixel Count",
+        height=300,
+        margin=dict(l=20, r=20, t=45, b=20),
+        legend=dict(orientation="h"),
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key=f"hist_compare_{title}_{algorithm}",
+    )
+
 
 # ------------------------------------------
 # Sidebar
@@ -279,6 +419,11 @@ elif page == "MRI 뷰어":
             format_func=lambda path: path.name,
         )
 
+        
+        # ======================================
+        # DICOM 영상 목록
+        # ======================================
+
         dicom_files = sorted(
             (selected_case / "DICOM").glob("*.dcm")
         )
@@ -287,17 +432,77 @@ elif page == "MRI 뷰어":
             st.warning("이 케이스에 DICOM 파일이 없습니다.")
             st.stop()
 
-        image_number = st.slider(
-            "영상 번호",
-            min_value=1,
-            max_value=len(dicom_files),
-            value=1,
+        total_images = len(dicom_files)
+
+        # ======================================
+        # 윤곽선 있는 영상 필터
+        # ======================================
+
+        only_contours = st.checkbox(
+            "윤곽선 있는 영상만 보기",
+            value=False,
         )
 
-        selected_file = dicom_files[image_number - 1]
+        if only_contours:
 
-        st.caption(f"총 {len(dicom_files)}개 영상")
+            contour_folder = (
+                CONTOUR_DIR
+                / selected_case.name
+                / "contours-manual"
+                / "IRCCI-expert"
+            )
+
+            annotated_files = []
+
+            for dicom_file in dicom_files:
+
+                inner_path = contour_folder / (
+                    f"{dicom_file.stem}-icontour-manual.txt"
+                )
+
+                outer_path = contour_folder / (
+                    f"{dicom_file.stem}-ocontour-manual.txt"
+                )
+
+                # 내벽 또는 외벽이 하나라도 있으면 포함
+                if inner_path.is_file() or outer_path.is_file():
+                    annotated_files.append(dicom_file)
+
+            if not annotated_files:
+                st.warning(
+                    "현재 케이스에 윤곽선 데이터가 있는 "
+                    "MRI 영상이 없습니다."
+                )
+                st.stop()
+
+            # 윤곽선 영상만 드롭다운으로 선택
+            selected_file = st.selectbox(
+                "윤곽선 영상 선택",
+                annotated_files,
+                format_func=lambda path: path.name,
+            )
+
+            st.success(
+                f"윤곽선 영상 {len(annotated_files)}개 "
+                f"/ 전체 {total_images}개"
+            )
+
+        else:
+
+            # 기존 전체 영상 슬라이더
+            image_number = st.slider(
+                "영상 번호",
+                min_value=1,
+                max_value=total_images,
+                value=1,
+            )
+
+            selected_file = dicom_files[image_number - 1]
+
+            st.caption(f"총 {total_images}개 영상")
+
         st.caption(f"파일: {selected_file.name}")
+
 
     # Analysis Tools
     with tool_col:
@@ -348,16 +553,28 @@ elif page == "MRI 뷰어":
             "ROI 분석 모드",
         value=False,
         )
+        
+        show_contours = st.checkbox(
+            "좌심실 윤곽선 표시",
+        value=False,
+        )
 
         st.divider()
-        st.caption("추가 예정: ROI 분석")
-        st.caption("추가 예정: 확대 / 이동 / 초기화")
-        st.caption("추가 예정: 좌심실 윤곽선")
 
     # Load and process the selected MRI
     try:
         original, metadata = load_dicom(selected_file)
 
+          # 현재 케이스 및 DICOM 파일과 일치하는 윤곽선
+        contours = {}
+
+        if show_contours:
+            contours = load_contours(
+            CONTOUR_DIR,
+            selected_case.name,
+            selected_file.stem,
+        )
+            
         if algorithm == "CLAHE":
             processed = apply_clahe(
                 original,
@@ -421,8 +638,15 @@ elif page == "MRI 뷰어":
                         img_height * display_width / img_width
                     )
 
+                    # 원본 MRI 위에 좌심실 윤곽선 추가
+                    roi_display_source = (
+                        draw_contours(original, contours)
+                        if contours
+                        else original
+                    )
+
                     display_image = Image.fromarray(
-                        original
+                        roi_display_source
                     ).resize(
                         (display_width, display_height),
                         resample=Image.Resampling.NEAREST,
@@ -485,6 +709,7 @@ elif page == "MRI 뷰어":
                                 f"roi_processed_{selected_case.name}_"
                                 f"{selected_file.stem}_{algorithm}"
                             ),
+                            contours=contours,
                         )
 
                     else:
@@ -573,6 +798,37 @@ elif page == "MRI 뷰어":
                             y_label="Pixel Count",
                             height=260,
                         )
+                        
+                    # ==================================
+                    # 수동 ROI의 영상처리 전후 비교
+                    # ==================================
+
+                    if algorithm != "Original":
+
+                        processed_roi = analyze_roi(
+                            processed,
+                            x=roi_result["x"],
+                            y=roi_result["y"],
+                            width=roi_result["width"],
+                            height=roi_result["height"],
+                        )
+
+                        # Canny Edge Density 계산
+                        processed_roi["edge_density"] = (
+                            np.count_nonzero(
+                                processed_roi["roi_image"]
+                            )
+                            / processed_roi["area"]
+                            * 100
+                        )
+
+                        show_roi_comparison(
+                            roi_result,
+                            processed_roi,
+                            algorithm,
+                            "Manual ROI - Before / After",
+                        )
+                    
 
             # ==================================
             # 일반 MRI 뷰어 모드
@@ -604,6 +860,7 @@ elif page == "MRI 뷰어":
                                 f"original_{selected_case.name}_"
                                 f"{selected_file.stem}"
                             ),
+                            contours=contours,
                         )
 
                     with right:
@@ -615,6 +872,7 @@ elif page == "MRI 뷰어":
                                 f"processed_{selected_case.name}_"
                                 f"{selected_file.stem}_{algorithm}"
                             ),
+                            contours=contours,
                         )
 
                 else:
@@ -627,8 +885,120 @@ elif page == "MRI 뷰어":
                             f"viewer_{selected_case.name}_"
                             f"{selected_file.stem}_{algorithm}"
                         ),
+                        contours=contours,
                     )
 
+
+            # ==================================
+            # 좌심실 윤곽선 면적 분석
+            # ==================================
+
+            if show_contours:
+
+                st.divider()
+                st.subheader("LV Contour Analysis")
+
+                if contours:
+
+                    areas = calculate_contour_areas(
+                        original.shape,
+                        contours,
+                    )
+
+                    col1, col2, col3 = st.columns(3)
+
+                    col1.metric(
+                        "Endocardium",
+                        f"{areas['inner']:,} px²"
+                        if "inner" in areas else "없음",
+                    )
+
+                    col2.metric(
+                        "Epicardium",
+                        f"{areas['outer']:,} px²"
+                        if "outer" in areas else "없음",
+                    )
+
+                    col3.metric(
+                        "Myocardium",
+                        f"{areas['myocardium']:,} px²"
+                        if "myocardium" in areas else "계산 불가",
+                    )
+
+                    st.caption(
+                        "초록색: 좌심실 내벽 | "
+                        "주황색: 좌심실 외벽"
+                    )
+
+                else:
+
+                    st.info(
+                        "현재 MRI 영상에는 윤곽선 데이터가 없습니다."
+                    )
+            
+            # ==================================
+            # 좌심실 윤곽선 기반 전후 ROI 비교
+            # ==================================
+
+            if show_contours and contours:
+
+                st.divider()
+                st.subheader("LV ROI Quantitative Comparison")
+
+                # 데이터가 있는 영역만 선택 가능
+                region_options = {}
+
+                if "inner" in contours and "outer" in contours:
+                    region_options["심근 (Myocardium)"] = "myocardium"
+
+                if "inner" in contours:
+                    region_options["좌심실 내강 (LV Cavity)"] = "inner"
+
+                if "outer" in contours:
+                    region_options["외벽 내부 (Epicardium)"] = "outer"
+
+                region_label = st.selectbox(
+                    "분석할 좌심실 영역",
+                    list(region_options.keys()),
+                )
+
+                region = region_options[region_label]
+
+                # 원본 윤곽선 ROI 분석
+                original_stats = analyze_contour_roi(
+                    original,
+                    contours,
+                    region,
+                )
+
+                if algorithm == "Original":
+
+                    st.metric(
+                        "선택 영역 면적",
+                        f"{original_stats['area']:,} px²"
+                    )
+
+                    st.info(
+                        "영상처리 알고리즘을 선택하면 "
+                        "처리 전후 ROI 비교 결과가 표시됩니다."
+                    )
+
+                else:
+
+                    # 동일한 영역에서 영상처리 후 분석
+                    processed_stats = analyze_contour_roi(
+                        processed,
+                        contours,
+                        region,
+                    )
+
+                    show_roi_comparison(
+                        original_stats,
+                        processed_stats,
+                        algorithm,
+                        f"{region_label} - Before / After",
+                    )
+        
 
             # ==================================
             # DICOM Metadata
